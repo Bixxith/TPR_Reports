@@ -13,8 +13,12 @@ def getSaturday():
     daysInc = 0
     nextSelector = date.today()
     while dayGet != 5:
-        dayGet += 1
-        daysInc += 1
+        if dayGet == 6:
+            dayGet = 5
+            daysInc = 6
+        else:
+            dayGet += 1
+            daysInc += 1
     todayPlusIncDay = date.today().day + daysInc
     nextSaturday = nextSelector.replace(day=todayPlusIncDay)
     return nextSaturday
