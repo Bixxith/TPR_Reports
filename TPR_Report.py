@@ -37,7 +37,7 @@ class reportGUI:
     def __init__(self):
         window = Tk()
         window.title("TPR Report Compiler")
-        window.geometry("200x200")
+        window.geometry("500x500")
         frame1 = Frame(window)
         frame1.grid(row=3, column=3, padx=5, pady=5)
         btnCompile = Button(frame1, text="Process Report", width=15, height=5)
