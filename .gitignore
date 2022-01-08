@@ -1,0 +1,6 @@
+venv34
+.idea
+build
+dist
+*.spec
+*.pyc

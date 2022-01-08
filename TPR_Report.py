@@ -2,10 +2,11 @@ import pandas as pd
 from datetime import date
 from tkinter import *
 import os
-
+import pendulum
 
 deptCount = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 deptCounter = 0
+
 
 # finds the current day of the week and checks to see how many days until the closest saturday so that way it can get the exact date of the upcoming saturday
 def getSaturday():
@@ -20,8 +21,12 @@ def getSaturday():
             dayGet += 1
             daysInc += 1
     todayPlusIncDay = date.today().day + daysInc
+
     nextSaturday = nextSelector.replace(day=todayPlusIncDay)
-    return nextSaturday
+
+    formatSaturday = nextSaturday
+
+    return formatSaturday
 
 # sets up the file path and location. dictates the path to the folder and file
 username = os.getlogin()
@@ -37,7 +42,7 @@ class reportGUI:
     def __init__(self):
         window = Tk()
         window.title("TPR Report Compiler")
-        window.geometry("500x500")
+        window.geometry("200x200")
         frame1 = Frame(window)
         frame1.grid(row=3, column=3, padx=5, pady=5)
         btnCompile = Button(frame1, text="Process Report", width=15, height=5)
@@ -55,29 +60,35 @@ class reportGUI:
         lblInstructions2.grid(row=2, column=0)
         lblInstructions1.grid(row=0, column=0)
         btnCompile.grid(row=3, column=0)
-
+        frame1.pack()
         window.mainloop()
 
 
 # checks to make sure the file was created today so that way we get the most accurate report
 def load_if_modified_today(xlsx):
+    print("Modified!")
     modx = os.path.getmtime(xlsx)
     xmod = date.fromtimestamp(modx)
+    rawSaturday = getSaturday()
+    saturday = rawSaturday.strftime("%#m/%#d/%Y")
     # need to add logic for handling instances where the BRData Prices has not been updated.
     if date.today() == xmod:
         x = 99
         df = pd.read_excel(xlsx, usecols="B,C,D,F,G,H,I,J,K,O,T")
         df = df[df['TPR\nPrior'].isin([x])]
-        df = df[df['TPR To'].isin([getSaturday()])]
-
+        #df = df[df['TPR To'].isin([saturday])]
+        print(df)
         return df
 
 
 # static file name that never changes
-e = f'C:\\Users\\{username}\\Desktop\\BRdata_Prices.xlsx'
+desktop = os.path.expanduser("~/Desktop")
+filePath = os.path.join(desktop, "BRdata_Prices.xlsx")
+
+
 
 # calls the check to make sure file was updated today
-df = load_if_modified_today(e)
+df = load_if_modified_today(filePath)
 
 
 # creates the file incase it doesn't already exist and assigns writer to reference it
@@ -86,7 +97,7 @@ def createTPRReport():
         if os.path.exists(path):
             break
         else:
-            os.mkdir(path)
+            os.mkdir(path) 
     writer = pd.ExcelWriter(filename, engine='xlsxwriter')
     return writer
 
@@ -116,6 +127,7 @@ def createSheets(dept, deptName):
 
 # seperates all of the departments and assigns them to worksheets
 def seperateDepartments():
+    print('seperateDepart')
     df2 = df.rename(
         columns={'Description': 'Item Description', 'Reg\nPM': ' ', 'Reg\nPrice': 'Regular Price', 'TPR\nPM': '  ',
                  'TPR\nPrice': 'TPR Price'}, inplace=True)
@@ -160,26 +172,26 @@ def seperateDepartments():
 
     writer.save()
 
-    # opens the sheets and then tries to print them
-    import win32com.client
+    # # opens the sheets and then tries to print them
+    # import win32com.client
 
-    o = win32com.client.Dispatch('Excel.Application')
-    o.visible = True
-    wb = o.Workbooks.Open(filename)
-    ws = wb.Worksheets
-    print(ws)
+    # o = win32com.client.Dispatch('Excel.Application')
+    # o.visible = True
+    # wb = o.Workbooks.Open(filename)
+    # ws = wb.Worksheets
+    # print(ws)
 
-    # returns a TypeError stating something about a bool.  It still prints and the solution is attained.  this
-    # bypasses the error.
+    # # returns a TypeError stating something about a bool.  It still prints and the solution is attained.  this
+    # # bypasses the error.
 
-    try:
-        ws.printout()
-        print('yes')
-    except:
-        return {
-            closeProgram()
-        }
-    closeProgram()
+    # try:
+    #     ws.printout()
+    #     print('yes')
+    # except:
+    #     return {
+    #         closeProgram()
+    #     }
+    # closeProgram()
 
 
 # kills the excel program
