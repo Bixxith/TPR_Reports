@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import date
-from tkinter import *
+from tkinter import Tk, Frame, Button, Label, messagebox
 import os
 import pendulum
 
@@ -34,13 +34,13 @@ class TPR_Reporter:
         self.nxtSat = getNxtSat.strftime(self.dateFormat)
         self.brdFile = os.path.join(os.path.expanduser("~/Desktop"),
                                     "BRdata_Prices.xlsx")
-        self.brdUpdated = self.checkUpdated()
 
     def checkUpdated(self):
         fileModifiedDate = date.fromtimestamp(os.path.getmtime(self.brdFile))
+        print(bool(fileModifiedDate == date.today()))
         return bool(fileModifiedDate == date.today())
     
-    def readReport(self):
+    def getData(self):
         rawFile = pd.read_excel(self.brdFile, usecols=self.columnsToUse)
         dateFilter = rawFile[rawFile[self.dateColumnName] == self.nxtSat]
         tprFilter = dateFilter[dateFilter[self.tprColumn] == self.tprPriority]
@@ -48,7 +48,6 @@ class TPR_Reporter:
         finalDataFile.rename(columns=self.columnRenaming,
                                         inplace=True)
         self.dataFile = finalDataFile
-        self.createReport() 
           
     def setupFiles(self):
         self.reportFolder = os.path.expanduser("~/Desktop/TPR Report")
@@ -60,10 +59,29 @@ class TPR_Reporter:
                                            engine='xlsxwriter') 
                  
     def createReport(self):
-        self.setupFiles()
-        self.createSheets()
-        self.reportWriter.save()  
-
+        notFoundError = """
+            BRdata_Prices.xlsx does not exist.
+            Please run "Parse BRdata Prices" and try again.
+                        """
+        notUpdatedError =   """
+            BRdata_Prices.xlsx exists but has not been updated.
+            Please run "Parse BRdata Prices" and try again.  
+                            """
+        try:
+            self.brdUpdated = self.checkUpdated()
+        except FileNotFoundError:
+            messagebox.showerror(title="File Not Found",
+                                   message=notFoundError)
+            os._exit(0)
+        if self.brdUpdated:
+            self.getData()
+            self.setupFiles()
+            self.createSheets()
+            self.reportWriter.save()  
+        else:
+            messagebox.showerror(title="File Not Up to Date",
+                                message=notUpdatedError)
+            return
     def createSheets(self):
         upcString = '[<=99999]#;[<=9999999999]#####-#####;###-#####-#####'
         workbookFormats = {'upc':{'num_format': upcString},
@@ -123,7 +141,7 @@ class TPR_Reporter_GUI:
         self.btnCompile.bind("<Button-1>", self.startProgram)
     
     def startProgram(self, event):
-        TPR_Reporter().readReport()
+        TPR_Reporter().createReport()
         
     def packWidgets(self):
         self.lblTopTxt.pack()
