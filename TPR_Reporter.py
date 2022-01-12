@@ -8,56 +8,54 @@ import pendulum
 class TPR_Reporter:
     
     def __init__(self):
-        self.tprColumn = 'TPR\nPrior'
-        self.dateColumnName = 'TPR To'
-        self.tprPriority = 99
-        self.dateFormat = '%#m/%#d/%Y'
-        self.fileDateFormat ='%#m-%#d-%Y'
-        self.columnsToUse = "B,C,D,F,G,H,I,J,K,T"
-        self.departments = {'Produce':[20,21,22,23,24,25,26,27,28,29,100],
-                            'Meat':[30,31,32,33,34,35,36,37,38,39],
-                            'Frozen':[40,41,42,43,44,45,46,47,48,49],
-                            'Dairy':[50,51,52,53,54,55,56,57,58,59],
-                            'Deli & Bakery':[60,61,62,63,64,65,66,67,68,69,
-                                             80,81,82,83,84,85,86,87,88,89],
-                            'GM & HBC':[70,71,72,73,74,75,76,77,78,79,
-                                        90,91,92,93,94,95,96,97,98,99],
-                            'Grocery':[200,201,202,203,204,205,
-                                       206,207,208,209,210]}
-        self.columnRenaming = {'Description': 'Item Description',
+        dateFormat = '%#m/%#d/%Y'
+        self.nextSaturday = self.getNextSaturday()
+        self.nextSaturdayDateFormatted = self.nextSaturday.strftime(dateFormat)
+        self.brdFile = os.path.join(os.path.expanduser("~/Desktop"),
+                                    "BRdata_Prices.xlsx")
+
+    # Setter for the self.nextSaturday variable.
+    def getNextSaturday(self):
+        return pendulum.now().next(pendulum.SATURDAY)
+    
+    # Checks to see if the BRD file has been updated to ensure accuracy
+    def checkUpdated(self):
+        fileModifiedDate = date.fromtimestamp(os.path.getmtime(self.brdFile))
+        return bool(fileModifiedDate == date.today())
+    
+    # Gets the relevant data from the from the BRData file.
+    def getData(self):
+        tprColumn = 'TPR\nPrior'
+        dateColumnName = 'TPR To'
+        tprPriority = 99
+        columnsToUse = "B,C,D,F,G,H,I,J,K,T"
+        columnRenaming = {'Description': 'Item Description',
                                'Reg\nPM': ' ', 
                                'Reg\nPrice': 'Regular Price', 
                                'TPR\nPM': '  ',
                                'TPR\nPrice': 'TPR Price'}
-        getNxtSat = pendulum.now().next(pendulum.SATURDAY)
-        self.nxtSatFileDate = getNxtSat.strftime(self.fileDateFormat)
-        self.nxtSat = getNxtSat.strftime(self.dateFormat)
-        self.brdFile = os.path.join(os.path.expanduser("~/Desktop"),
-                                    "BRdata_Prices.xlsx")
-
-    def checkUpdated(self):
-        fileModifiedDate = date.fromtimestamp(os.path.getmtime(self.brdFile))
-        print(bool(fileModifiedDate == date.today()))
-        return bool(fileModifiedDate == date.today())
-    
-    def getData(self):
-        rawFile = pd.read_excel(self.brdFile, usecols=self.columnsToUse)
-        dateFilter = rawFile[rawFile[self.dateColumnName] == self.nxtSat]
-        tprFilter = dateFilter[dateFilter[self.tprColumn] == self.tprPriority]
+        rawFile = pd.read_excel(self.brdFile, usecols=columnsToUse)
+        dateFilter = rawFile[rawFile[dateColumnName] == self.nextSaturdayDateFormatted]
+        tprFilter = dateFilter[dateFilter[tprColumn] == tprPriority]
         finalDataFile = tprFilter
-        finalDataFile.rename(columns=self.columnRenaming,
+        finalDataFile.rename(columns=columnRenaming,
                                         inplace=True)
         self.dataFile = finalDataFile
-          
+    
+    # Setup for the outputted report and its directory          
     def setupFiles(self):
+        fileDateFormat ='%#m-%#d-%Y'
+        nxtSatDate = self.nextSaturday.strftime(fileDateFormat)
+        
         self.reportFolder = os.path.expanduser("~/Desktop/TPR Report")
         if not os.path.exists(self.reportFolder):
             os.mkdir(self.reportFolder)
         self.reportFile = os.path.join(self.reportFolder,
-                                       f'TPRreport{self.nxtSatFileDate}.xlsx')
+                                       f'TPRreport{nxtSatDate}.xlsx')
         self.reportWriter = pd.ExcelWriter(self.reportFile,
                                            engine='xlsxwriter') 
-                 
+    
+    # Creates              
     def createReport(self):
         notFoundError = """
             BRdata_Prices.xlsx does not exist.
@@ -87,8 +85,18 @@ class TPR_Reporter:
         workbookFormats = {'upc':{'num_format': upcString},
                            'num':{'num_format': '$#.00'}}
         dataFile = self.dataFile
-        for dept in self.departments.keys():
-            numList = self.departments[dept]
+        departments = {'Produce':[20,21,22,23,24,25,26,27,28,29,100],
+                            'Meat':[30,31,32,33,34,35,36,37,38,39],
+                            'Frozen':[40,41,42,43,44,45,46,47,48,49],
+                            'Dairy':[50,51,52,53,54,55,56,57,58,59],
+                            'Deli & Bakery':[60,61,62,63,64,65,66,67,68,69,
+                                             80,81,82,83,84,85,86,87,88,89],
+                            'GM & HBC':[70,71,72,73,74,75,76,77,78,79,
+                                        90,91,92,93,94,95,96,97,98,99],
+                            'Grocery':[200,201,202,203,204,205,
+                                       206,207,208,209,210]}
+        for dept in departments.keys():
+            numList = departments[dept]
             departmentTPRs = dataFile[dataFile['Dept'].isin(numList)]
             print(departmentTPRs, dept)
             departmentTPRs.to_excel(self.reportWriter, 
@@ -106,7 +114,7 @@ class TPR_Reporter:
             reportWorksheet = self.reportWriter.sheets[dept]
             headerFormat = (f'&C&20TPR Report  |'
                             f'|  {dept} Department  |'
-                            f'|  {self.nxtSat}')
+                            f'|  {self.nextSaturdayDateFormatted}')
             reportWorksheet.set_header(headerFormat)
             moneyFormat.set_align('center')
             reportWorksheet.set_column('A:A', 14.86, upcFormat)
@@ -132,7 +140,7 @@ class TPR_Reporter_GUI:
         self.window.geometry("200x200")
         
     def widgets(self):
-        nxtSat = TPR_Reporter().nxtSat
+        nxtSat = TPR_Reporter().nextSaturdayDateFormatted
         self.lblTopTxt = Label(self.mainFrame, 
                            text="Press Compile Report to get started")
         self.lblBtmTxt = Label(self.mainFrame,
