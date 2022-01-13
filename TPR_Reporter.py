@@ -54,8 +54,7 @@ class TPR_Reporter:
                                        f'TPRreport{nxtSatDate}.xlsx')
         self.reportWriter = pd.ExcelWriter(self.reportFile,
                                            engine='xlsxwriter') 
-    
-    # Creates              
+              
     def createReport(self):
         notFoundError = """
             BRdata_Prices.xlsx does not exist.
@@ -75,11 +74,24 @@ class TPR_Reporter:
             self.getData()
             self.setupFiles()
             self.createSheets()
-            self.reportWriter.save()  
+            self.sortSheets()
+            self.reportWriter.save()
+            self.completedReports()  
+            quit()
         else:
             messagebox.showerror(title="File Not Up to Date",
                                 message=notUpdatedError)
             return
+    
+    def completedReports(self):
+        infoText = """
+            Report created and stored in the
+            TPR Report folder located on your desktop.
+                    """
+        messagebox.showinfo(title="Report Compiled",
+                            message=infoText)
+
+        
     def createSheets(self):
         upcString = '[<=99999]#;[<=9999999999]#####-#####;###-#####-#####'
         workbookFormats = {'upc':{'num_format': upcString},
@@ -123,13 +135,15 @@ class TPR_Reporter:
             reportWorksheet.set_column('D:D', 11.86, moneyFormat)
             reportWorksheet.set_column('E:E', 2.29)
             reportWorksheet.set_column('F:F', 8.43, moneyFormat)
-
+    def sortSheets(self):
+        self.dataFile.sort_values('UPC', ascending=True)
     
 class TPR_Reporter_GUI:
     
     def __init__(self):
         self.window = Tk()
         self.mainFrame = Frame(self.window)
+        self.windowSettings()
         self.widgets()
         self.packWidgets()
         self.mainFrame.pack()
@@ -137,7 +151,7 @@ class TPR_Reporter_GUI:
     
     def windowSettings(self):
         self.window.title("TPR Report")
-        self.window.geometry("200x200")
+        self.window.geometry("200x100")
         
     def widgets(self):
         nxtSat = TPR_Reporter().nextSaturdayDateFormatted
