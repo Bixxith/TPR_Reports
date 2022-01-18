@@ -3,6 +3,7 @@ from datetime import date
 from tkinter import Tk, Frame, Button, Label, messagebox
 import os
 import pendulum
+from openpyxl import load_workbook, styles
 
 
 class TPR_Reporter:
@@ -47,7 +48,7 @@ class TPR_Reporter:
         fileDateFormat ='%#m-%#d-%Y'
         nxtSatDate = self.nextSaturday.strftime(fileDateFormat)
         
-        self.reportFolder = os.path.expanduser("~/Desktop/TPR Report")
+        self.reportFolder = os.path.expanduser("~\Desktop\TPR Report")
         if not os.path.exists(self.reportFolder):
             os.mkdir(self.reportFolder)
         self.reportFile = os.path.join(self.reportFolder,
@@ -74,8 +75,9 @@ class TPR_Reporter:
             self.getData()
             self.setupFiles()
             self.createSheets()
-            self.sortSheets()
-            self.reportWriter.save()
+            self.reportWriter.close()
+            self.postProcessing()
+            
             self.completedReports()  
             quit()
         else:
@@ -107,20 +109,22 @@ class TPR_Reporter:
                                         90,91,92,93,94,95,96,97,98,99],
                             'Grocery':[200,201,202,203,204,205,
                                        206,207,208,209,210]}
+        columnsList = ["UPC",
+                       "Item Description",
+                       " ",
+                       "Regular Price",
+                       "  ",
+                       "TPR Price"]
         for dept in departments.keys():
             numList = departments[dept]
             departmentTPRs = dataFile[dataFile['Dept'].isin(numList)]
             if not departmentTPRs.empty:
                 sortedTPRs = departmentTPRs.sort_values(by=['UPC'])
+                rows = sortedTPRs.index
                 sortedTPRs.to_excel(self.reportWriter, 
                             sheet_name=dept,
                             index=False,
-                            columns=["UPC",
-                                    "Item Description",
-                                    " ",
-                                    "Regular Price",
-                                    "  ",
-                                    "TPR Price"])
+                            columns=columnsList)
                 reportWorkbook = self.reportWriter.book
                 moneyFormat = reportWorkbook.add_format(workbookFormats['num'])
                 upcFormat = reportWorkbook.add_format(workbookFormats['upc'])
@@ -136,24 +140,33 @@ class TPR_Reporter:
                 reportWorksheet.set_column('D:D', 11.86, moneyFormat)
                 reportWorksheet.set_column('E:E', 2.29)
                 reportWorksheet.set_column('F:F', 8.43, moneyFormat)
-            
+    
+    # Parent function of the border processes
+    def addBorders(self):
+        self.processSheets()
+    
+    # Loads the worksheets and passes each sheet to get borders added            
+    def processSheets(self):
+        workbook = load_workbook(self.reportFile)
+        for sheets in workbook.sheetnames:
+            sheet = workbook[sheets]
+            self.setBorder(sheet)
+        workbook.save(self.reportFile)
+    
+    # Adds bottom borders to the selected worksheets    
+    def setBorder(self, worksheet):
+        workSheetRange = ['A', 'F']
+        thinFormat = styles.Side(border_style="dotted", color="000000")
+        addBorder = styles.Border(bottom=thinFormat)
+        currentSheet = worksheet[workSheetRange[0]:workSheetRange[1]]
+        for row in currentSheet:
+            for cell in row: 
+                if cell.row % 2 != 0 and cell.row != 1:
+                    cell.border = addBorder
+
+    # Function for manipulating the resulting file after creation.
     def postProcessing(self):
-        createdSheet = pd.ExcelWriter(self.reportFile, engine='xlsxwriter')
-        workbook = self.reportWriter.book
-        self.addUnderline(workbook)
-        
-            
-    def sortSheets(self):
-        self.postProcessing()
-        
-    def addUnderline(self, workbook):
-        worksheet = workbook
-        format = workbook.add_format()
-        format.set_bottom(6)
-        
-        for sheet in workbook.worksheets():
-            pass
-        # worksheet.write
+        self.addBorders()
         
 class TPR_Reporter_GUI:
     
