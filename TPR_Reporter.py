@@ -110,31 +110,32 @@ class TPR_Reporter:
         for dept in departments.keys():
             numList = departments[dept]
             departmentTPRs = dataFile[dataFile['Dept'].isin(numList)]
-            sortedTPRs = departmentTPRs.sort_values(by=['UPC'])
-            sortedTPRs.to_excel(self.reportWriter, 
-                        sheet_name=dept,
-                        index=False,
-                        columns=["UPC",
-                                 "Item Description",
-                                 " ",
-                                 "Regular Price",
-                                 "  ",
-                                 "TPR Price"])
-            reportWorkbook = self.reportWriter.book
-            moneyFormat = reportWorkbook.add_format(workbookFormats['num'])
-            upcFormat = reportWorkbook.add_format(workbookFormats['upc'])
-            reportWorksheet = self.reportWriter.sheets[dept]
-            headerFormat = (f'&C&20TPR Report  |'
-                            f'|  {dept} Department  |'
-                            f'|  {self.nextSaturdayDateFormatted}')
-            reportWorksheet.set_header(headerFormat)
-            moneyFormat.set_align('center')
-            reportWorksheet.set_column('A:A', 14.86, upcFormat)
-            reportWorksheet.set_column('B:B', 38)
-            reportWorksheet.set_column('C:C', 2.29)
-            reportWorksheet.set_column('D:D', 11.86, moneyFormat)
-            reportWorksheet.set_column('E:E', 2.29)
-            reportWorksheet.set_column('F:F', 8.43, moneyFormat)
+            if not departmentTPRs.empty:
+                sortedTPRs = departmentTPRs.sort_values(by=['UPC'])
+                sortedTPRs.to_excel(self.reportWriter, 
+                            sheet_name=dept,
+                            index=False,
+                            columns=["UPC",
+                                    "Item Description",
+                                    " ",
+                                    "Regular Price",
+                                    "  ",
+                                    "TPR Price"])
+                reportWorkbook = self.reportWriter.book
+                moneyFormat = reportWorkbook.add_format(workbookFormats['num'])
+                upcFormat = reportWorkbook.add_format(workbookFormats['upc'])
+                reportWorksheet = self.reportWriter.sheets[dept]
+                headerFormat = (f'&C&20TPR Report  |'
+                                f'|  {dept} Department  |'
+                                f'|  {self.nextSaturdayDateFormatted}')
+                reportWorksheet.set_header(headerFormat)
+                moneyFormat.set_align('center')
+                reportWorksheet.set_column('A:A', 14.86, upcFormat)
+                reportWorksheet.set_column('B:B', 38)
+                reportWorksheet.set_column('C:C', 2.29)
+                reportWorksheet.set_column('D:D', 11.86, moneyFormat)
+                reportWorksheet.set_column('E:E', 2.29)
+                reportWorksheet.set_column('F:F', 8.43, moneyFormat)
             
     def postProcessing(self):
         createdSheet = pd.ExcelWriter(self.reportFile, engine='xlsxwriter')
