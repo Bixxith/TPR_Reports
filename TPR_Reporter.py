@@ -110,8 +110,8 @@ class TPR_Reporter:
         for dept in departments.keys():
             numList = departments[dept]
             departmentTPRs = dataFile[dataFile['Dept'].isin(numList)]
-            print(departmentTPRs, dept)
-            departmentTPRs.to_excel(self.reportWriter, 
+            sortedTPRs = departmentTPRs.sort_values(by=['UPC'])
+            sortedTPRs.to_excel(self.reportWriter, 
                         sheet_name=dept,
                         index=False,
                         columns=["UPC",
@@ -135,9 +135,25 @@ class TPR_Reporter:
             reportWorksheet.set_column('D:D', 11.86, moneyFormat)
             reportWorksheet.set_column('E:E', 2.29)
             reportWorksheet.set_column('F:F', 8.43, moneyFormat)
+            
+    def postProcessing(self):
+        createdSheet = pd.ExcelWriter(self.reportFile, engine='xlsxwriter')
+        workbook = self.reportWriter.book
+        self.addUnderline(workbook)
+        
+            
     def sortSheets(self):
-        self.dataFile.sort_values('UPC', ascending=True)
-    
+        self.postProcessing()
+        
+    def addUnderline(self, workbook):
+        worksheet = workbook
+        format = workbook.add_format()
+        format.set_bottom(6)
+        
+        for sheet in workbook.worksheets():
+            pass
+        # worksheet.write
+        
 class TPR_Reporter_GUI:
     
     def __init__(self):
