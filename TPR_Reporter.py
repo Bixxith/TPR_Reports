@@ -1,31 +1,59 @@
+from genericpath import exists
 import pandas as pd
 from datetime import date
 from tkinter import Tk, Frame, Button, Label, messagebox
 import os
 import pendulum
 from openpyxl import load_workbook, styles
-
+import json
 
 class TPR_Reporter:
     
     def __init__(self):
-        self.nextSaturday = self.getNextSaturday(pendulum.now())
+        self.dayOfWeek = []
+        self.nextSaturday = self.getNextReportDate(pendulum.now())
         self.nextThreeSaturdays = self.getNextThreeSaturdays()
         self.nextSaturdayDateFormatted = self.formatDates(self.nextSaturday)
-        self.brdFile = os.path.join(os.path.expanduser("~/Desktop"),
-                                    "BRdata_Prices.xlsx")
+        self.brdFile = self.findBRDataFile()
 
+    def findBRDataFile(self):
+        desktop = os.path.expanduser("~/Desktop")
+        fileName = "BRdata_Prices.xlsx"
+        file = os.path.join(desktop, fileName)
+        self.checkUpdated(file)
+        return file
+    
     def formatDates(self, date):
         dateFormat = '%#m/%#d/%Y'
         return date.strftime(dateFormat)
     
-    def getNextSaturday(self, date):
+    def getNextReportDate(self, date):
         return date.next(pendulum.SATURDAY)
     
-    def checkUpdated(self):
-        fileModifiedDate = date.fromtimestamp(os.path.getmtime(self.brdFile))
-        return bool(fileModifiedDate == date.today())
-    
+    def checkUpdated(self, file):
+        errorMsg = f"""
+        {file}
+         
+        File does not exist or is outdated.
+        
+        Please run 'Parse BRData Prices' 
+        before running this program.
+        """
+        
+        if exists(file):
+            fileModifiedDate = date.fromtimestamp(os.path.getmtime(file))
+        else:
+            messagebox.showerror("FileNotFound",
+                                 errorMsg)
+            exit()
+            
+        if fileModifiedDate == date.today():
+            return
+        else:
+            messagebox.showerror("FileNotUpdated",
+                                 errorMsg)
+            exit()            
+        
     def getData(self):
         tprColumn = 'TPR\nPrior'
         self.dateColumnName = 'TPR To'
@@ -51,7 +79,7 @@ class TPR_Reporter:
         saturdays = []
         nextSat = self.nextSaturday
         for i in range(1,4):
-            nextSat = self.getNextSaturday(nextSat)
+            nextSat = self.getNextReportDate(nextSat)
             saturdays.append(self.formatDates(nextSat))
         return(saturdays)
                 
@@ -67,33 +95,12 @@ class TPR_Reporter:
                                            engine='xlsxwriter') 
               
     def createReport(self):
-        notFoundError = """
-            BRdata_Prices.xlsx does not exist.
-            Please run "Parse BRdata Prices" and try again.
-                        """
-        notUpdatedError =   """
-            BRdata_Prices.xlsx exists but has not been updated.
-            Please run "Parse BRdata Prices" and try again.  
-                            """
-        try:
-            self.brdUpdated = self.checkUpdated()
-        except FileNotFoundError:
-            messagebox.showerror(title="File Not Found",
-                                   message=notFoundError)
-            os._exit(0)
-        if self.brdUpdated:
             self.getData()
             self.setupFiles()
             self.createSheets()
             self.reportWriter.close()
             self.postProcessing()
-            
             self.completedReports()  
-            quit()
-        else:
-            messagebox.showerror(title="File Not Up to Date",
-                                message=notUpdatedError)
-            return
     
     def completedReports(self):
         infoText = """
@@ -132,9 +139,7 @@ class TPR_Reporter:
                 
     def processDepts(self, dept, departments,columnsList, workbookFormats, strays=False):
         regularTPRs = self.dataFile[self.dataFile[self.dateColumnName] == self.nextSaturdayDateFormatted]
-        print(regularTPRs)
         strayTPRS = self.dataFile[self.dataFile[self.dateColumnName] != self.nextSaturdayDateFormatted]
-        print(strayTPRS)
         numList = departments[dept]
         if not strays:
             departmentTPRs = regularTPRs[regularTPRs['Dept'].isin(numList)]
@@ -196,36 +201,77 @@ class TPR_Reporter:
 class TPR_Reporter_GUI:
     
     def __init__(self):
-        self.window = Tk()
-        self.mainFrame = Frame(self.window)
-        self.windowSettings()
-        self.widgets()
-        self.packWidgets()
-        self.mainFrame.pack()
-        self.window.mainloop()
-    
-    def windowSettings(self):
-        self.window.title("TPR Report")
-        self.window.geometry("200x100")
+        mainWindow = self.setupDisplay()
+        mainWindow.mainloop()
+      
+    def createWindow(self):
+        window = Tk()
         
-    def widgets(self):
-        nxtSat = TPR_Reporter().nextSaturdayDateFormatted
-        self.lblTopTxt = Label(self.mainFrame, 
-                           text="Press Compile Report to get started")
-        self.lblBtmTxt = Label(self.mainFrame,
-                               text=f"Next Saturday is: {nxtSat}")
-        self.btnCompile = Button(self.mainFrame, text="Process Report")
-        self.btnCompile.bind("<Button-1>", self.startProgram)
+        window.title("TPR Report")
+        window.geometry("300x100")
+        return window
     
-    def startProgram(self, event):
-        TPR_Reporter().createReport()
+    def createFrame(self, window):
+        mainFrame = Frame(window)
         
-    def packWidgets(self):
-        self.lblTopTxt.pack()
-        self.lblBtmTxt.pack()
-        self.btnCompile.pack()
+        return mainFrame
 
+    def setupDisplay(self):
+        mainWindow = self.createWindow()
+        mainFrame = Frame(mainWindow)
+        
+        self.setupWidgets(mainFrame)
+        mainFrame.pack()
+        return mainWindow
+    
+    def setupWidgets(self, frame):
+        self.titleLabel(frame)
+        self.nextReportLabel(frame)
+        self.compileButtonMethod(frame)
+        self.pleaseWaitLabel(frame)
+        self.finishedLabelMethod(frame)
+        
+    def nextReportLabel(self, frame):
+        nextReportDay = self.getNextReportDay()
+        labelText = f"Next Saturday is: {nextReportDay}"
+        labelReportDay = Label(frame, text=labelText)
+        
+        labelReportDay.pack()
+    
+    def getNextReportDay(self):
+        return TPR_Reporter().nextSaturdayDateFormatted
+        
+    def titleLabel(self, frame):
+        titleText = "Press 'Compile Report' to get started."
+        labelText = Label(frame, text=titleText)
+        
+        labelText.pack()
+        
+    def compileButtonMethod(self, frame):
+        buttonText = 'Compile Report'
+        self.compileButton = Button(frame, text=buttonText)
+        
+        self.compileButton.bind("<Button-1>", self.compileReports)
+        self.compileButton.pack()
+        
+    def pleaseWaitLabel(self, frame):
+        labeltext = "Processing.  Please be patient.  This may take a minute."
+        self.waitLabel = Label(frame, text=labeltext)
+    
+    def finishedLabelMethod(self, frame):
+        labelText = "Report compiled.\n  Please check the TPR report folder on your desktop"
+        self.finishedLabel = Label(frame, text=labelText)
+          
+    def compileReports(self, event):
+        self.compileButton.pack_forget()
+        self.waitLabel.pack()
+        TPR_Reporter().createReport()
+        self.waitLabel.pack_forget()
+        self.finishedLabel.pack()
+        
+        
+        
 
 if __name__ == "__main__":
-    TPR_Reporter_GUI()
+    instance = TPR_Reporter_GUI()
     
