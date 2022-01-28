@@ -1,7 +1,7 @@
 from genericpath import exists
 import pandas as pd
 from datetime import date
-from tkinter import Tk, Frame, Button, Label, messagebox
+from tkinter import HORIZONTAL, LEFT, S, Entry, OptionMenu, StringVar, Tk, Frame, Button, Label, messagebox, ttk
 import os
 import pendulum
 from openpyxl import load_workbook, styles
@@ -10,12 +10,32 @@ import json
 class TPR_Reporter:
     
     def __init__(self):
-        self.dayOfWeek = []
+        # savedDay = self.getSavedDay()
+        self.dayOfWeek = self.chooseDay()
         self.nextSaturday = self.getNextReportDate(pendulum.now())
         self.nextThreeSaturdays = self.getNextThreeSaturdays()
         self.nextSaturdayDateFormatted = self.formatDates(self.nextSaturday)
         self.brdFile = self.findBRDataFile()
-
+        
+    def chooseDay(self, day=''):
+        todaysDate = pendulum.now()
+        if day == 'Monday':
+            return todaysDate.next(pendulum.MONDAY)
+        elif day == 'Tuesday':
+            return todaysDate.next(pendulum.TUESDAY)
+        elif day == 'Wednesday':
+            return todaysDate.next(pendulum.WEDNESDAY)
+        elif day == 'Thursday':
+            return todaysDate.next(pendulum.THURSDAY)
+        elif day == 'Friday':
+            return todaysDate.next(pendulum.FRIDAY)
+        elif day == 'Saturday':
+            return todaysDate.next(pendulum.SATURDAY)
+        elif day == 'Sunday':
+            return todaysDate.next(pendulum.SUNDAY)
+        else:
+            return todaysDate.next(pendulum.SATURDAY)
+        
     def findBRDataFile(self):
         desktop = os.path.expanduser("~/Desktop")
         fileName = "BRdata_Prices.xlsx"
@@ -200,40 +220,141 @@ class TPR_Reporter:
         
 class TPR_Reporter_GUI:
     
+    # Initialization
     def __init__(self):
+        self.settings = dict()
+        self.settingsInit()
         mainWindow = self.setupDisplay()
         mainWindow.mainloop()
-      
+    
+    # Init Variables
+    def comboBoxVariables(self):
+        self.dayOfWeek  = StringVar()
+        self.dayOfMonth = StringVar()
+        self.reportFrequency = StringVar()
+
+        
+    # Create the main window.   
     def createWindow(self):
         window = Tk()
-        
         window.title("TPR Report")
-        window.geometry("300x100")
+        window.geometry("400x300")
         return window
     
+    # Creates a master frame for the window.
     def createFrame(self, window):
         mainFrame = Frame(window)
-        
         return mainFrame
 
+    # Init's the main frame/window, calls the widgets, and returns the mainwindow.
     def setupDisplay(self):
         mainWindow = self.createWindow()
         mainFrame = Frame(mainWindow)
-        
+        self.comboBoxVariables()
         self.setupWidgets(mainFrame)
         mainFrame.pack()
         return mainWindow
     
+    # Calls each widget to be set up.
     def setupWidgets(self, frame):
+        self.setupFrequencyControls(frame)
+        # frequencyFrame = self.frequencyFrame(frame)
         self.titleLabel(frame)
-        self.nextReportLabel(frame)
+        # self.chooseFrequency(frequencyFrame)
+        # self.nextReportLabel(frame)
         self.compileButtonMethod(frame)
         self.pleaseWaitLabel(frame)
         self.finishedLabelMethod(frame)
+        # labsTest = Label(frequencyFrame, text='test')
+        # labsTest.pack()
+        # self.frequencyDecider(frequencyFrame)
+        # self.dayOfWeekMenu(frequencyFrame)
         
+    # Frequency Controls
+    # Freq 1/
+    def setupFrequencyControls(self,frame):
+        freqFrame = self.frequencyFrame(frame)
+        self.dayOfWeekMenu(freqFrame)
+        self.dayOfMonthControls(freqFrame)
+        self.frequencyDecider(freqFrame)
+        
+    # Main Freq frame
+    # Freq 2/        
+    def frequencyFrame(self, frame):
+        frequencyLabelFrame = ttk.Labelframe(frame,
+                                             text="Options",
+                                             padding=10)
+        frequencyLabelFrame.pack(fill='both', expand='yes', side=LEFT)
+        return frequencyLabelFrame
+    
+    # Combo box to select frequency of reports.
+    # Freq 3/
+    def frequencyDecider(self,frame):
+        freqLabelText = "TPR Report Frequency"
+        freqLabel = Label(frame, text=freqLabelText)
+        freqLabel.pack()
+        options = ["Weekly", "Monthly"]
+        self.reportFrequency.set(self.settings["Frequency"])
+        comboFrequency = ttk.Combobox(frame, 
+                                      textvariable=self.reportFrequency,
+                                values=options,
+                                state="readonly",
+                                width=10)
+        comboFrequency.bind("<<ComboboxSelected>>", self.updateFrequencySelection)
+        comboFrequency.pack()
+        freqSep = ttk.Separator(frame, orient=HORIZONTAL)
+        freqSep.pack()
+        self.updateFrequencySelection("pass")
+    
+    def updateFrequencySelection(self,event):
+        option = self.reportFrequency.get()
+        
+        if option == "Weekly":
+            self.dayEntryFrame.pack_forget()
+            self.dropdownMenu.pack()
+        elif option == "Monthly":
+            self.dropdownMenu.pack_forget()
+            self.dayEntryFrame.pack()  
+    # def chooseFrequency(self, frame):
+    #     sep = ttk.Separator(frame, orient=HORIZONTAL)
+    #     sep.pack(fill='x')
+    #     lblFrame = ttk.Labelframe(frame, text="label")
+    #     lblFrame.pack(fill='both', expand='yes', side=LEFT)
+    #     ladfsd = Label(lblFrame, text='Test')   
+    #     ladfsd.pack() 
+    #     # comboFrequency = ttk.Combobox(frame,
+    #     #                               values=[
+    #     #                                         "Weekly",
+    #     #                                         "Monthly"],
+    #     #                               state="readonly")
+    #     # comboFrequency.pack()
+    
+    # If Weekly selected then display these options
+    # Freq 4/  
+    def dayOfWeekMenu(self, frame):
+        options = ["Monday", "Tuesday", "Wednesday",
+                   "Thursday", "Friday", "Saturday", "Sunday"]
+        
+        self.dayOfWeek.set(self.settings["DayOfWeek"])
+        self.dropdownMenu = ttk.Combobox(frame, 
+                                    textvariable=self.dayOfWeek, 
+                                    values=options,
+                                    state="readonly",
+                                    width=12)
+  
+    def dayOfMonthControls(self,frame):
+        self.dayEntryFrame = Frame(frame)
+        dayLabelText = "Day of Month: "
+        self.dayLabel = Label(self.dayEntryFrame, text=dayLabelText)
+        self.dayEntry = Entry(self.dayEntryFrame, width=2, 
+                              textvariable=self.dayOfMonth)
+        self.dayLabel.pack(side=LEFT)
+        self.dayEntry.pack(side=LEFT)
+        
+    
     def nextReportLabel(self, frame):
         nextReportDay = self.getNextReportDay()
-        labelText = f"Next Saturday is: {nextReportDay}"
+        labelText = f"Next {self.dayOfWeek.get()} is: {nextReportDay}"
         labelReportDay = Label(frame, text=labelText)
         
         labelReportDay.pack()
@@ -252,7 +373,7 @@ class TPR_Reporter_GUI:
         self.compileButton = Button(frame, text=buttonText)
         
         self.compileButton.bind("<Button-1>", self.compileReports)
-        self.compileButton.pack()
+        self.compileButton.pack(anchor = S)
         
     def pleaseWaitLabel(self, frame):
         labeltext = "Processing.  Please be patient.  This may take a minute."
@@ -269,8 +390,32 @@ class TPR_Reporter_GUI:
         self.waitLabel.pack_forget()
         self.finishedLabel.pack()
         
-        
-        
+
+         
+    def settingsInit(self):
+        self.settingsFile = 'TPR_Report_Config.json'
+        if exists(self.settingsFile):
+            pass
+        else:
+            with open(self.settingsFile, "w") as output:
+                settings = dict()
+                settings['DayOfWeek'] = 'Saturday'
+                settings['Frequency'] = 'Weekly'
+                settingsJson = json.dumps(settings)
+                output.write(settingsJson)
+        self.loadSettings()
+                
+    def saveSettings(self, event):
+        settingsJson = json.dumps(self.settings)       
+        with open(self.settingsFile, "w") as output:
+            output.write(settingsJson)
+            
+    def loadSettings(self):
+        with open(self.settingsFile) as input:
+            settings = json.load(input)
+            for item in settings:
+                self.settings[item] = settings[item]
+                
 
 if __name__ == "__main__":
     instance = TPR_Reporter_GUI()
